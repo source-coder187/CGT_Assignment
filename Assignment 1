@@ -1,0 +1,159 @@
+import networkx as nx
+import matplotlib.pyplot as plt
+
+# Havel-Hakimi Algorithm to check if sequence is graphical
+def check_graphic_sequence(deg_sequence):
+    deg_sequence.sort(reverse=True)
+    while deg_sequence and deg_sequence[0] == 0:
+        deg_sequence.pop(0)
+    if sum(deg_sequence) % 2 != 0:
+        return False  # Not a graphic sequence
+    while deg_sequence:
+        degree = deg_sequence.pop(0)
+        if degree > len(deg_sequence):
+            return False
+        for i in range(degree):
+            deg_sequence[i] -= 1
+        deg_sequence.sort(reverse=True)
+    return True
+
+# Check if the graph is Eulerian
+def check_eulerian(graph):
+    return nx.is_eulerian(graph)
+
+# Fleury’s Algorithm for finding Eulerian path
+def find_eulerian_path(graph):
+    if not check_eulerian(graph):
+        return None
+    euler_circuit = list(nx.eulerian_circuit(graph)) if nx.is_eulerian(graph) else None
+    return euler_circuit
+
+# Assign user input weights to edges
+def get_user_weights(graph):
+    for (start, end) in graph.edges():
+        weight = int(input(f"Enter weight for edge ({start}, {end}): "))
+        graph.edges[start, end]['weight'] = weight
+
+# Dijkstra’s algorithm to find shortest paths from source vertex
+def find_shortest_paths(graph, start_node):
+    return nx.single_source_dijkstra_path_length(graph, start_node, weight='weight')
+
+# Prim's algorithm to find Minimum Spanning Tree
+def find_mst(graph):
+    mst_graph = nx.minimum_spanning_tree(graph, algorithm='prim')
+    return mst_graph
+
+# Plot graph with edge weights
+def visualize_graph(graph):
+    positions = nx.spring_layout(graph)
+    edge_labels = nx.get_edge_attributes(graph, 'weight')
+    nx.draw(graph, positions, with_labels=True, node_color='lightblue', node_size=700)
+    nx.draw_networkx_edge_labels(graph, positions, edge_labels=edge_labels)
+    plt.title("Original Graph")
+    plt.show()
+
+# Plot the Minimum Spanning Tree
+def visualize_mst(mst_graph):
+    positions = nx.spring_layout(mst_graph)
+    edge_labels = nx.get_edge_attributes(mst_graph, 'weight')
+    nx.draw(mst_graph, positions, with_labels=True, node_color='lightgreen', node_size=700)
+    nx.draw_networkx_edge_labels(mst_graph, positions, edge_labels=edge_labels)
+    plt.title("Minimum Spanning Tree")
+    plt.show()
+
+# Find fundamental cutsets and circuits with respect to MST
+def find_cutsets_and_circuits(graph, mst_graph):
+    cutsets_list = []
+    circuits_list = []
+    
+    for edge in graph.edges():
+        if edge not in mst_graph.edges():
+            cutsets_list.append(edge)  # Cutset is the edge not in MST
+
+    for edge in cutsets_list:
+        u, v = edge
+        # Create a circuit by adding the edge back to the MST and finding a cycle
+        temp_mst = mst_graph.copy()
+        temp_mst.add_edge(u, v)
+        # Find all circuits in the graph
+        circuits_list.extend(list(nx.simple_cycles(temp_mst)))
+
+    return cutsets_list, circuits_list
+
+# Calculate the vertex connectivity manually
+def compute_vertex_connectivity(graph):
+    min_connectivity = float('inf')
+    for node in graph.nodes():
+        # Create a copy of the graph without the current node
+        temp_graph = graph.copy()
+        temp_graph.remove_node(node)
+        # Check if the graph is still connected
+        if not nx.is_connected(temp_graph):
+            return 1  # If the graph is not connected, the connectivity is at least 1
+        # Count the number of connected components
+        connected_components = list(nx.connected_components(temp_graph))
+        min_connectivity = min(min_connectivity, len(connected_components) - 1)
+    return min_connectivity if min_connectivity != float('inf') else 0
+
+# Get user input for the degree sequence
+degree_sequence = list(map(int, input("Enter the degree sequence (space-separated integers): ").split()))
+
+if check_graphic_sequence(degree_sequence[:]):
+    graph = nx.havel_hakimi_graph(degree_sequence)  # Generate graph using Havel-Hakimi
+    get_user_weights(graph)  # Assign user-provided weights to edges
+    visualize_graph(graph)  # Plot the graph
+
+    # Check if the graph is Eulerian
+    if check_eulerian(graph):
+        print("The graph is Eulerian.")
+        eulerian_path = find_eulerian_path(graph)
+        if eulerian_path:
+            print("Euler Path/Circuit:", list(eulerian_path))
+    else:
+        print("The graph is not Eulerian.")
+    
+    # Get source vertex from user for shortest path computation
+    source_node = int(input("Enter the source vertex: "))
+    
+    if source_node in graph.nodes():
+        shortest_paths = find_shortest_paths(graph, source_node)
+        print("\nShortest distances from vertex", source_node, "to all other vertices:")
+        for vertex, distance in shortest_paths.items():
+            print(f"Vertex {vertex}: Distance {distance}")
+    else:
+        print("Invalid source vertex.")
+
+    # Find Minimum Spanning Tree
+    mst_graph = find_mst(graph)
+    print("\nMinimum Spanning Tree (edges and weights):")
+    for edge in mst_graph.edges(data=True):
+        print(f"Edge {edge[0]}-{edge[1]}: Weight {edge[2]['weight']}")
+
+    # Plot the Minimum Spanning Tree
+    visualize_mst(mst_graph)
+
+    # Find fundamental cutsets and circuits
+    cutsets, circuits = find_cutsets_and_circuits(graph, mst_graph)
+    
+    print("\nFundamental Cutsets:")
+    for cutset in cutsets:
+        print(f"Cutset: {cutset}")
+
+    print("\nFundamental Circuits:")
+    for circuit in circuits:
+        print(f"Circuit: {circuit}")
+
+    # Calculate edge connectivity
+    edge_connectivity = nx.edge_connectivity(graph)
+    # Calculate vertex connectivity
+    vertex_connectivity = compute_vertex_connectivity(graph)
+
+    print("\nEdge Connectivity of the graph:", edge_connectivity)
+    print("Vertex Connectivity of the graph:", vertex_connectivity)
+
+    # Determine K-connected value
+    k_connected_value = min(edge_connectivity, vertex_connectivity)
+    print("Value of K for which the graph is K-connected:", k_connected_value)
+
+else:
+    print("Not a valid graphic sequence.")
